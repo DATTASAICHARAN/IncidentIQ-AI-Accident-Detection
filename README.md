@@ -1,261 +1,268 @@
-# 🚦 IncidentIQ — AI-Powered Road Accident Detection & Emergency Dispatch System
+<div align="center">
 
-> **Real-time CCTV accident detection using YOLOv8, with automated ambulance dispatch, live dashboards, and a citizen SOS rescue portal.**
+<img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=white" />
+<img src="https://img.shields.io/badge/Firebase-Firestore-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" />
+<img src="https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white" />
+<img src="https://img.shields.io/badge/TailwindCSS-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" />
+<img src="https://img.shields.io/badge/OpenStreetMap-Leaflet-7EBC6F?style=for-the-badge&logo=leaflet&logoColor=white" />
+<img src="https://img.shields.io/badge/Hosted-Firebase-orange?style=for-the-badge&logo=firebase" />
+
+<br/><br/>
+
+# 🏥 QueueCare — Smart Virtual Hospital Queue System
+
+### *Eliminate hospital waiting rooms. Track your place in line. Get notified before it's your turn.*
+
+[**🔴 Live Demo**](https://cureq-eb02c.web.app) &nbsp;|&nbsp; [**📐 Architecture**](#-system-architecture) &nbsp;|&nbsp; [**🚀 Features**](#-key-features) &nbsp;|&nbsp; [**⚙️ Setup**](#%EF%B8%8F-local-setup)
+
+</div>
 
 ---
 
-## 📌 Overview
+## 🌟 Why QueueCare?
 
-**IncidentIQ** is a full-stack intelligent traffic surveillance system that automatically detects road accidents from CCTV footage using a custom-trained **YOLOv8** computer vision model. When an accident is confirmed, the system instantly dispatches emergency services via automated **Twilio voice calls & SMS**, notifies hospitals, and provides a real-time command dashboard for traffic managers.
+Every year, patients spend **billions of hours** waiting in hospital lobbies — a problem that causes stress, missed treatments, and inefficiency. **QueueCare** is a real-time virtual queue management system that lets patients book appointments, join a live token queue, and **get voice-called 5 minutes before their turn** — all from any device.
 
-The system is built around three roles:
-- 🧑‍💼 **Traffic Managers** — Monitor live incidents, run AI analysis on uploaded footage, and manually dispatch emergency services.
-- 👤 **Citizens (Users)** — Report accidents via a web portal, view nearby hospitals, and trigger an **SOS RescueLink** alert in emergencies.
-- 🤖 **AI System (CCTV Watcher)** — Continuously analyses live camera feeds and auto-dispatches on confirmed detections.
+Doctors get a live dashboard to manage their queue, track overtime, and automatically recalculate projected wait times for every patient downstream.
+
+---
+
+## ✨ Key Features
+
+### 🧑‍⚕️ For Patients
+| Feature | Description |
+|---|---|
+| 📍 **GPS Hospital Finder** | Detects user location via browser Geolocation API and queries the **Overpass API** (OpenStreetMap) to list real nearby hospitals within 8 km |
+| 🗺️ **Interactive Map** | Full React-Leaflet map with live user & hospital markers, animated panning, and popup booking buttons |
+| 🔖 **Smart Token Booking** | Books an appointment and auto-assigns a queue token with a projected time calculated at **4-minute intervals** from the current time |
+| 📊 **Live Queue Tracker** | Real-time scrollable queue card view powered by **Firestore `onSnapshot`** — updates without any page refresh |
+| ⏱️ **Live Countdown Timer** | Per-second countdown showing exact time until the patient's turn |
+| 🔔 **Voice Reminder Notification** | 5-minute voice alert using the **Web Speech API** (simulating a Twilio phone call) with an on-screen toast |
+| ⭐ **Post-Session Feedback** | Star rating + written review modal auto-triggered after appointment completion |
+| 🏙️ **City Search** | Manual city search powered by the **Nominatim geocoding API** to explore hospitals anywhere |
+
+### 👨‍⚕️ For Doctors
+| Feature | Description |
+|---|---|
+| 📋 **Live Queue Dashboard** | Real-time appointment list sorted by status: `in-progress → next → pending → completed` |
+| ▶️ **One-Click Status Updates** | Instantly move patients from `pending → in-progress → completed` with live Firestore writes |
+| ⚠️ **Overtime Detection** | If a session exceeds 4 minutes, a pulsing **OVERTIME** badge and a **"Shift Queue"** button appear |
+| 🔄 **Smart Queue Recalculation** | Completing a session triggers automatic ripple-update of all pending patients' projected times |
+| 📅 **Date Picker** | View and manage appointments for any date — past or future |
+| 🟢 **Live Sync Indicator** | Pulsing "Live Sync" badge confirms real-time Firestore connection |
+
+### 🔐 Authentication
+- Role-based sign-up / sign-in (**Patient** or **Doctor**)
+- Firebase Auth with email & password
+- Doctors provide: Specialization, Hospital, Qualification
+- Role stored in Firestore `users` collection, read on every login
 
 ---
 
 ## 🏗️ System Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                   Frontend (HTML/JS)                │
-│  login.html → manager-dashboard.html / user-portal  │
-│         Real-time UI via Socket.IO                  │
-└────────────────┬────────────────────────────────────┘
-                 │ HTTP REST + WebSocket
-┌────────────────▼────────────────────────────────────┐
-│           Flask Backend — server.py (Port 5000)     │
-│  • YOLOv8 inference on uploaded CCTV videos         │
-│  • REST API: /api/analyze, /api/cctv-alert, /api/sos│
-│  • Socket.IO: real-time alert broadcasting          │
-│  • Twilio: auto voice + SMS dispatch                │
-│  • Firebase Auth + Firestore integration            │
-└────────────────┬────────────────────────────────────┘
-                 │
-┌────────────────▼────────────────────────────────────┐
-│          cctv_watcher.py (Background Service)       │
-│  • Watches live CCTV streams / video files          │
-│  • Runs YOLO on every frame (15 fps inference)      │
-│  • Requires 30 consecutive frames at >80% confidence│
-│  • POSTs confirmed alerts to /api/cctv-alert        │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                        CLIENT (React + Vite)                        │
+│                                                                     │
+│  ┌──────────────┐   ┌─────────────────────┐   ┌─────────────────┐  │
+│  │  Auth Layer  │   │   Patient Dashboard  │   │ Doctor Dashboard│  │
+│  │              │   │                     │   │                 │  │
+│  │ Firebase Auth│   │  ┌───────────────┐  │   │  ┌──────────┐  │  │
+│  │ Role-based   │   │  │ Map Explorer  │  │   │  │Live Queue│  │  │
+│  │ Routing      │   │  │ (React-Leaflet│  │   │  │Manager   │  │  │
+│  └──────┬───────┘   │  │ + OSM Tiles)  │  │   │  └────┬─────┘  │  │
+│         │           │  └───────┬───────┘  │   │       │         │  │
+│         │           │          │          │   │       │         │  │
+│         │           │  ┌───────▼───────┐  │   │  ┌────▼─────┐  │  │
+│         │           │  │Live Queue View│  │   │  │ Status   │  │  │
+│         │           │  │(onSnapshot)   │  │   │  │ Controls │  │  │
+│         │           │  └───────┬───────┘  │   │  └────┬─────┘  │  │
+│         │           │          │          │   │       │         │  │
+│         │           │  ┌───────▼───────┐  │   │  ┌────▼─────┐  │  │
+│         │           │  │Notification   │  │   │  │ Overtime │  │  │
+│         │           │  │Service (Voice │  │   │  │ Detector │  │  │
+│         │           │  │+ Toast)       │  │   │  └──────────┘  │  │
+│         │           │  └───────────────┘  │   └─────────────────┘  │
+│         │           └─────────────────────┘                        │
+└─────────┼───────────────────────┬─────────────────────────────────┘
+          │                       │
+          ▼                       ▼
+┌─────────────────┐   ┌───────────────────────────────────────────────┐
+│  Firebase Auth  │   │              Firebase Firestore (NoSQL)        │
+│                 │   │                                               │
+│  - Email/Pass   │   │  ┌──────────────┐   ┌──────────────────────┐ │
+│  - Session Mgmt │   │  │  users/      │   │   appointments/      │ │
+│  - UID binding  │   │  │  {uid}       │   │   {appointmentId}    │ │
+└─────────────────┘   │  │  - name      │   │   - patientId        │ │
+                       │  │  - role      │   │   - doctorId         │ │
+                       │  │  - email     │   │   - token (int)      │ │
+                       │  │  - phone     │   │   - status           │ │
+                       │  │  - specializ.│   │   - projectedTime    │ │
+                       │  │  - hospital  │   │   - appointmentDate  │ │
+                       │  └──────────────┘   │   - patientData {}   │ │
+                       │                     │   - reminderSent     │ │
+                       │                     │   - rating / feedback│ │
+                       │                     └──────────────────────┘ │
+                       └───────────────────────────────────────────────┘
+                                         │
+                                         │  Real-time onSnapshot listeners
+                                         │  (zero-polling, push-based)
+                                         ▼
+                       ┌───────────────────────────────────────────────┐
+                       │         External API Integrations             │
+                       │                                               │
+                       │  ┌──────────────────┐  ┌──────────────────┐  │
+                       │  │  Overpass API    │  │  Nominatim API   │  │
+                       │  │  (OpenStreetMap) │  │  (Geocoding)     │  │
+                       │  │  Real hospital   │  │  City → lat/lng  │  │
+                       │  │  data within 8km │  │  coordinate map  │  │
+                       │  └──────────────────┘  └──────────────────┘  │
+                       │                                               │
+                       │  ┌──────────────────────────────────────┐    │
+                       │  │  Web Speech API (Browser Native)     │    │
+                       │  │  Voice notifications — simulates     │    │
+                       │  │  Twilio automated reminder calls     │    │
+                       │  └──────────────────────────────────────┘    │
+                       └───────────────────────────────────────────────┘
+                                         │
+                                         ▼
+                       ┌───────────────────────────────────────────────┐
+                       │              Firebase Hosting                 │
+                       │         https://cureq-app.web.app             │
+                       └───────────────────────────────────────────────┘
 ```
 
----
+### Data Flow — Booking an Appointment
 
-## ✨ Key Features
+```
+Patient selects hospital (OSM data)
+        │
+        ▼
+Patient selects doctor (Firestore: users?role=doctor)
+        │
+        ▼
+Booking form submitted
+        │
+        ├── Query Firestore for existing appointments (same doctor, same date)
+        │   → Calculate next token number (count + 1)
+        │   → Calculate projectedTime (base 9AM + token × 4 minutes)
+        │
+        ├── Write new appointment document to Firestore
+        │
+        ├── Trigger voice confirmation (Web Speech API)
+        │
+        └── onSnapshot listeners fire on Patient & Doctor dashboards
+            → Both UIs update in real-time without refresh
+```
 
-### 🤖 AI Detection Engine
-- Custom-trained **YOLOv8** model (`accident_model_v2.pt`) detecting 5 accident classes:
-  - Vehicle Collision, Multi-car Pileup, Hit & Run, Pedestrian Accident, General Accident
-- **False-positive suppression**: Requires 30 consecutive frames at ≥ 80% confidence before triggering
-- **60-second cooldown** per camera to prevent duplicate alerts
-- Supports live RTSP streams, webcams, and video file playback
+### Queue Recalculation Flow — When a Doctor Finishes a Session
 
-### 🚨 Automated Emergency Dispatch
-- On AI-confirmed accident: automatically sends **Twilio voice call + SMS** to ambulance / dispatch
-- Google Maps link with GPS coordinates embedded in every alert
-- **Human-in-the-loop** override: manager can manually dispatch from dashboard at any time
-- Per-hospital calling from the user portal (allowlist-protected)
-
-### 📡 Real-Time Manager Dashboard
-- **Live Dashboard** — Incident feed with stats (Total / Pending / Active / Resolved)
-- **AI Analysis Hub** — Upload CCTV footage, pin camera location on a Leaflet map, run YOLO
-- **CCTV Live Alerts** — WebSocket-streamed alerts with snapshots, dispatch buttons, false-alarm tagging
-- **Alert Logs** — Full searchable history of all detections and dispatch actions
-- Model **retraining trigger** from false-alarm feedback data
-
-### 🆘 RescueLink — Citizen SOS Portal
-- Users register with **blood group** and **emergency contact** number
-- One-tap **SOS button** triggers 4 parallel Twilio actions (via `ThreadPoolExecutor`):
-  | Action | Channel | Recipient |
-  |--------|---------|-----------|
-  | A | SMS | Responder network |
-  | B | Voice call | Responder |
-  | C | Voice call | User's emergency contact |
-  | D | SMS | User's emergency contact |
-- Location shared as live Google Maps link
-- Firestore-backed **emergency alert** documents for audit trail
-
-### 🔄 Self-Improving Model (Retraining Pipeline)
-- Managers can mark detections as **"False Alarm"** — frames are saved to `retraining_data/false_positive/`
-- `retrain.py` fine-tunes `accident_model_v2.pt` on corrected data (10 epochs, lr=0.001)
-- New model saved to `runs/detect/accident_model_v2_retrained/weights/best.pt`
-- Manager-triggered from dashboard with a single button click
+```
+Doctor clicks "Mark Done"
+        │
+        ├── Update appointment status → 'completed' in Firestore
+        │
+        └── recalculateQueue() fires:
+            ├── Fetches all 'pending' appointments for this doctor
+            └── Writes new projectedTime = now + (index + 1) × 4 minutes
+                → Every waiting patient's countdown instantly adjusts
+```
 
 ---
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| **AI / CV** | YOLOv8 (Ultralytics), OpenCV |
-| **Backend** | Python, Flask, Flask-SocketIO, Eventlet |
-| **Database** | Google Firebase Firestore, JSON profile store |
-| **Auth** | Firebase Authentication |
-| **Notifications** | Twilio (Voice Calls + SMS), SMTP Email |
-| **Maps** | Leaflet.js, Overpass API, Google Maps links |
-| **Frontend** | Vanilla HTML/CSS/JS, Socket.IO client |
-| **DevOps** | python-dotenv, `.env` config, `.gitignore` |
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Python 3.10+
-- Node.js (optional, for JS tooling)
-- Twilio account (for SMS/call dispatch)
-- Firebase project (for auth + Firestore)
-
-### 1. Clone & Install
-
-```bash
-git clone https://github.com/DATTASAICHARAN/IncidentIQ-AI-Powered-Road-Accident-Detection-Emergency-Dispatch-System.git
-cd accident-detection
-pip install -r requirements.txt
-```
-
-### 2. Configure Environment
-
-Create a `.env` file in the project root:
-
-```env
-# Twilio (Emergency Dispatch)
-TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-TWILIO_AUTH_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-TWILIO_FROM=+1XXXXXXXXXX
-AMBULANCE_PHONE=+91XXXXXXXXXX
-
-# RescueLink SOS
-TWILIO_PHONE_NUMBER=+1XXXXXXXXXX
-RESCUELINK_RESPONDER_SMS=+91XXXXXXXXXX
-RESCUELINK_RESPONDER_VOICE=+91XXXXXXXXXX
-EMERGENCY_PHONE_NUMBER=+91XXXXXXXXXX
-
-# Firebase
-FIREBASE_API_KEY=your_key
-FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-FIREBASE_PROJECT_ID=your_project_id
-FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-FIREBASE_MESSAGING_SENDER_ID=000000000000
-FIREBASE_APP_ID=1:000000000000:web:xxxx
-
-# SMTP (optional, for email alerts)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_EMAIL=your_email@gmail.com
-SMTP_PASSWORD=your_app_password
-```
-
-### 3. Run the Backend
-
-```bash
-python server.py
-# Server starts on http://localhost:5000
-```
-
-### 4. Run the CCTV Watcher (optional)
-
-```bash
-# Watch a video file:
-python cctv_watcher.py --source path/to/cctv.mp4
-
-# Watch webcam:
-python cctv_watcher.py --source 0
-
-# Override GPS coordinates:
-python cctv_watcher.py --source 0 --lat 17.3850 --lng 78.4867
-```
-
-### 5. Retrain the Model (after feedback)
-
-```bash
-python retrain.py
-# Or trigger from the manager dashboard → AI Analysis Hub → "Retrain Model"
-```
-
----
-
-## 📁 Project Structure
-
-```
-accident-detection/
-├── server.py                  # Main Flask backend (1699 lines)
-├── cctv_watcher.py            # CCTV live stream monitor
-├── retrain.py                 # YOLO model fine-tuning pipeline
-├── accident_model_v2.pt       # Custom-trained YOLOv8 weights (~22 MB)
-├── rescue_user_profiles.json  # RescueLink user data store
-├── firestore.rules            # Firebase security rules
-│
-├── index.html                 # Landing / redirect page
-├── login.html                 # Firebase Auth login/register
-├── manager-dashboard.html     # Traffic manager control panel
-├── user-portal.html           # Citizen accident report + SOS portal
-├── rescue-dashboard-demo.html # RescueLink demo page
-│
-├── requirements.txt           # Python dependencies
-├── package.json               # Node.js dependencies (Twilio/Firebase JS)
-├── run_retrain.bat            # Windows batch script for retraining
-├── RESCUE_LINK.md             # RescueLink integration documentation
-│
-└── snapshots/                 # Auto-saved CCTV accident frames (JPEG)
-```
-
----
-
-## 📊 Model Details
-
-| Property | Value |
-|----------|-------|
-| Architecture | YOLOv8 |
-| Model file | `accident_model_v2.pt` |
-| Size | ~22 MB |
-| Inference confidence threshold | 80% |
-| Consecutive frames required | 30 |
-| Detection classes | 5 (Vehicle Collision, Pileup, Hit & Run, Pedestrian, Accident) |
-| Input resolution | 640×640 |
-| Inference speed | ~15 fps (CPU), faster on GPU |
-
----
-
-## 🔐 Security Notes
-
-- Emergency contact numbers and blood group data are stored **server-side only** — never exposed to the frontend
-- Hospital call allowlist (`ALLOWED_HOSPITAL_NUMBERS`) prevents abuse of the Twilio call API
-- Firebase security rules enforce authenticated access to Firestore collections
-- All sensitive credentials are loaded from `.env` (excluded from git via `.gitignore`)
-
----
-
-## 📸 Screenshots
-
-| Manager Dashboard | AI Analysis Hub | User SOS Portal |
+| Layer | Technology | Purpose |
 |---|---|---|
-| Live incident feed with real-time WebSocket alerts | Upload CCTV footage + pin location on map + run YOLO | One-tap SOS with 4-way Twilio dispatch |
+| **Frontend Framework** | React 19 + Vite 8 | Component-based SPA with fast HMR |
+| **Styling** | Tailwind CSS 4 | Utility-first responsive design |
+| **Routing** | React Router DOM v7 | Role-based client-side routing |
+| **Database** | Firebase Firestore | NoSQL real-time database with push listeners |
+| **Authentication** | Firebase Auth | Secure email/password auth with UID binding |
+| **Hosting** | Firebase Hosting | Global CDN deployment |
+| **Maps** | React-Leaflet + OpenStreetMap | Interactive geo-mapping without API key costs |
+| **Hospital Data** | Overpass API | Live OSM query for real hospitals near GPS coords |
+| **Geocoding** | Nominatim API | City name → coordinates for manual search |
+| **Notifications** | Web Speech API | Browser-native voice alerts (Twilio-ready) |
+| **Icons** | Lucide React | Consistent, lightweight SVG icon set |
 
 ---
 
-## 🤝 Contributing
+## 🗂️ Project Structure
 
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Commit your changes: `git commit -m 'Add your feature'`
-4. Push to branch: `git push origin feature/your-feature`
-5. Open a Pull Request
+```
+QueueCare/
+├── src/
+│   ├── pages/
+│   │   ├── Auth.jsx              # Login / Sign-up with role selection
+│   │   ├── PatientDashboard.jsx  # Map, hospital finder, booking, live queue
+│   │   ├── DoctorDashboard.jsx   # Queue manager, overtime tracker
+│   │   ├── Login.jsx             # Standalone login redirect
+│   │   └── Signup.jsx            # Standalone signup redirect
+│   ├── components/
+│   │   ├── Navbar.jsx            # Top navigation with auth state
+│   │   └── Toast.jsx             # Animated notification toast
+│   ├── context/
+│   │   └── AuthContext.jsx       # Global auth state via React Context
+│   ├── services/
+│   │   └── NotificationService.js # Voice + toast notification engine
+│   ├── firebase.js               # Firestore + Auth exports + reminder sweep
+│   └── firebaseConfig.js         # Firebase project config
+├── backend/                      # Node.js backend scaffold (extensible)
+├── functions/                    # Firebase Cloud Functions (Twilio-ready)
+├── firebase.json                 # Hosting + functions config
+└── vite.config.js                # Vite build config
+```
 
 ---
 
-## 📄 License
+## ⚙️ Local Setup
 
-This project is licensed under the MIT License.
+```bash
+# 1. Clone the repository
+git clone https://github.com/DATTASAICHARAN/QueueCare-Smart-Virtual-Hospital-Queue-System.git
+cd "QueueCare – Smart Virtual Hospital Queue System"
+
+# 2. Install dependencies
+npm install
+
+# 3. Configure Firebase
+# Create src/firebaseConfig.js with your Firebase project credentials:
+# export default initializeApp({ apiKey, authDomain, projectId, ... })
+
+# 4. Start development server
+npm run dev
+```
+
+> The app will be available at `http://localhost:5173`
+
+---
+
+## 🔮 Production Roadmap
+
+- [ ] **Twilio Integration** — Replace Web Speech API simulation with real SMS/call via Firebase Cloud Functions
+- [ ] **Push Notifications** — Firebase Cloud Messaging for background alerts
+- [ ] **Admin Panel** — Hospital admin dashboard to manage doctors and specializations
+- [ ] **Payment Gateway** — Razorpay/Stripe for consultation fee collection
+- [ ] **Medical Records** — Secure upload and storage of patient reports via Firebase Storage
+- [ ] **WhatsApp Reminders** — Twilio WhatsApp API for regional accessibility
+- [ ] **Multi-language Support** — i18n for regional Indian languages
 
 ---
 
 ## 👨‍💻 Author
 
-**Datta Sai Charan**  
-Built as part of a real-world AI & emergency response engineering project.
+**Datta Sai Charan**
+- 💼 [LinkedIn](https://www.linkedin.com/in/mamidala-datta-sai-charan-873a1a3b4/)
+- 🐙 [GitHub](https://github.com/DATTASAICHARAN)
 
-> *"Detecting accidents before responders are even called — saving seconds that save lives."*
+---
+
+<div align="center">
+
+*Built with ❤️ to modernize healthcare access — one queue at a time.*
+
+⭐ **Star this repo if you find it useful!**
+
+</div>
