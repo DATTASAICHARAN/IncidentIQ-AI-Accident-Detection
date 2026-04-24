@@ -112,7 +112,7 @@ The system is built around three roles:
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/your-username/accident-detection.git
+git clone https://github.com/DATTASAICHARAN/IncidentIQ-AI-Powered-Road-Accident-Detection-Emergency-Dispatch-System.git
 cd accident-detection
 pip install -r requirements.txt
 ```
