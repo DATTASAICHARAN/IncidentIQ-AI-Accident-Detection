@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Report Incident — IncidentIQ</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <!-- Leaflet CSS for OpenStreetMap -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        .location-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-lg);
+            align-items: start;
+        }
+
+        .location-details {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-md);
+        }
+
+        .location-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: 0.5rem 1rem;
+            background: var(--green-100);
+            color: #166534;
+            border-radius: var(--radius-md);
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .location-badge.pending {
+            background: var(--amber-100);
+            color: #92400E;
+        }
+
+        .submit-section {
+            text-align: center;
+            padding: var(--space-xl) 0;
+        }
+
+        .submit-section .btn {
+            padding: 1rem 3rem;
+            font-size: 1.05rem;
+        }
+
+        @media (max-width: 768px) {
+            .location-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ── SOS Button ─────────────────────────────── */
+        .sos-panel {
+            background: linear-gradient(135deg, #1a0000 0%, #3d0000 100%);
+            border: 2px solid rgba(255, 60, 60, 0.4);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl);
+            text-align: center;
+            animation: slideUp 0.5s ease 0.35s both;
+            position: relative;
+            overflow: hidden;
+        }
+        .sos-panel::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at center, rgba(255,0,0,0.08) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .sos-panel h3 {
+            color: #ff6b6b;
+            margin-bottom: var(--space-sm);
+            font-size: 1.1rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+        .sos-panel p {
+            color: rgba(255,255,255,0.55);
+            font-size: 0.82rem;
+            margin-bottom: var(--space-lg);
+        }
+        .sos-blood-group {
+            display: inline-block;
+            margin-bottom: var(--space-lg);
+        }
+        .sos-blood-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: rgba(255,255,255,0.5);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 0.4rem;
+        }
+        .sos-blood-group select {
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,80,80,0.35);
+            color: #fff;
+            border-radius: var(--radius-md);
+            padding: 0.5rem 1.2rem;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            outline: none;
+        }
+        .sos-blood-group select:focus {
+            border-color: rgba(255,80,80,0.8);
+        }
+        .sos-blood-group select option {
+            background: #1a0000;
+        }
+        .btn-sos {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            background: linear-gradient(135deg, #cc0000, #ff3333);
+            color: #fff;
+            font-size: 1.25rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            padding: 1rem 3rem;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(255,0,0,0.5), 0 4px 15px rgba(0,0,0,0.4);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            position: relative;
+        }
+        .btn-sos::before {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 54px;
+            border: 2px solid rgba(255,60,60,0.6);
+            animation: sosPulse 1.8s ease-in-out infinite;
+        }
+        @keyframes sosPulse {
+            0%   { opacity: 1; transform: scale(1); }
+            70%  { opacity: 0; transform: scale(1.25); }
+            100% { opacity: 0; transform: scale(1.25); }
+        }
+        .btn-sos:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 0 35px rgba(255,0,0,0.7), 0 6px 20px rgba(0,0,0,0.5);
+        }
+        .btn-sos:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            animation: none;
+        }
+        .btn-sos:disabled::before { animation: none; }
+    </style>
+</head>
+
+<body>
+    <div class="user-portal">
+        <!-- Header -->
+        <header class="portal-header">
+            <div class="portal-header__brand">
+                <div class="portal-header__brand-icon">🚦</div>
+                <span>IncidentIQ</span>
+            </div>
+            <div style="display:flex; align-items:center; gap: var(--space-md);">
+                <span id="user-name" style="font-size:0.88rem; color:var(--text-secondary);"></span>
+                <button class="btn btn-ghost btn-sm" onclick="logout()">Sign Out</button>
+            </div>
+        </header>
+
+        <!-- Body -->
+        <div class="portal-body">
+            <div style="text-align:center; margin-bottom: var(--space-2xl); animation: fadeIn 0.5s ease;">
+                <h1 style="font-size:1.8rem; margin-bottom: var(--space-xs);">Report an Incident</h1>
+                <p class="text-muted">Upload evidence and share your location to help responders act fast.</p>
+            </div>
+
+            <!-- Step 1: Media Upload -->
+            <div class="card mb-xl" style="animation: slideUp 0.5s ease 0.1s both;">
+                <h3 class="mb-lg">📸 Upload Photos &amp; Videos</h3>
+                <div class="upload-zone" id="upload-zone">
+                    <div class="upload-zone__icon">📁</div>
+                    <p class="upload-zone__title">Drag &amp; drop files here</p>
+                    <p class="upload-zone__subtitle">or click to browse • JPG, PNG, MP4, MOV</p>
+                    <input type="file" id="file-input" multiple accept="image/*,video/*" />
+                </div>
+                <div class="preview-grid" id="preview-grid"></div>
+            </div>
+
+            <!-- Step 2: Location -->
+            <div class="card mb-xl" style="animation: slideUp 0.5s ease 0.2s both;">
+                <h3 class="mb-lg">📍 Incident Location</h3>
+                <div class="location-section">
+                    <div class="map-container" id="map"></div>
+                    <div class="location-details">
+                        <div>
+                            <span class="location-badge pending" id="location-status">⏳ Fetching location…</span>
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label">Latitude</label>
+                            <input class="form-input" id="lat-input" readonly placeholder="—" />
+                        </div>
+                        <div class="form-group" style="margin-bottom:0;">
+                            <label class="form-label">Longitude</label>
+                            <input class="form-input" id="lng-input" readonly placeholder="—" />
+                        </div>
+                        <button class="btn btn-ghost" id="get-location-btn" onclick="fetchLocation()">🔄 Refresh
+                            Location</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Description -->
+            <div class="card mb-xl" style="animation: slideUp 0.5s ease 0.3s both;">
+                <h3 class="mb-lg">📝 Description (optional)</h3>
+                <div class="form-group" style="margin-bottom:0;">
+                    <textarea class="form-textarea" id="description"
+                        placeholder="Describe the incident — type of accident, vehicles involved, injuries, etc."></textarea>
+                </div>
+            </div>
+
+            <!-- ⚠️ SOS Emergency Alert -->
+            <div class="sos-panel mb-xl">
+                <h3>🆘 SOS Emergency Alert</h3>
+                <p>Press only in a genuine emergency. Your live GPS location will be sent instantly.</p>
+
+                <div class="sos-blood-group">
+                    <label for="sos-blood-group">Blood Group</label>
+                    <select id="sos-blood-group">
+                        <option value="Unknown">Select Blood Group</option>
+                        <option value="A+">A+</option>
+                        <option value="A-">A−</option>
+                        <option value="B+">B+</option>
+                        <option value="B-">B−</option>
+                        <option value="AB+">AB+</option>
+                        <option value="AB-">AB−</option>
+                        <option value="O+">O+</option>
+                        <option value="O-">O−</option>
+                        <option value="Unknown">Unknown</option>
+                    </select>
+                </div>
+
+                <br />
+                <button class="btn-sos" id="sos-btn" onclick="handleSos()">
+                    🚨 SEND SOS
+                </button>
+            </div>
+
+            <!-- Submit -->
+            <div class="submit-section" style="animation: slideUp 0.5s ease 0.4s both;">
+                <button class="btn btn-amber" id="submit-btn" onclick="submitReport()">
+                    🚀 Submit Report
+                </button>
+                <p class="text-muted" style="margin-top: var(--space-md); font-size: 0.82rem;">
+                    Your report will be reviewed by the traffic management team.
+                </p>
+            </div>
+        </div>
+
+        <!-- Toast Container -->
+        <div class="toast-container" id="toast-container"></div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/user-portal.js"></script>
+    <script type="module" src="js/firebase-sync.js"></script>
+
+    <!-- SOS Alert module -->
+    <script type="module">
+        import { triggerSosAlert } from "./js/sos-alert.js";
+
+        window.handleSos = async function () {
+            const btn = document.getElementById("sos-btn");
+            const bloodGroup = document.getElementById("sos-blood-group").value;
+
+            // Get the logged-in user's name/email from sessionStorage
+            let triggeredBy = "anonymous";
+            try {
+                const rawSession = sessionStorage.getItem("iq_session");
+                if (rawSession) {
+                    const s = JSON.parse(rawSession);
+                    triggeredBy = s.name || s.email || triggeredBy;
+                }
+            } catch (_) {}
+
+            btn.disabled = true;
+            btn.innerHTML = "⏳ Sending SOS…";
+
+            try {
+                const docId = await triggerSosAlert({ bloodGroup, triggeredBy });
+                btn.innerHTML = "✅ SOS Sent!";
+                // Show a toast if the helper is available
+                if (typeof showToast === "function") {
+                    showToast(`🆘 SOS alert sent! (ID: ${docId})`, "success");
+                }
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = "🚨 SEND SOS";
+                }, 5000);
+            } catch (err) {
+                console.error("[RescueLink] SOS failed:", err);
+                btn.disabled = false;
+                btn.innerHTML = "🚨 SEND SOS";
+                if (typeof showToast === "function") {
+                    showToast("SOS failed: " + err.message, "error");
+                }
+            }
+        };
+    </script>
+</body>
+
+</html>

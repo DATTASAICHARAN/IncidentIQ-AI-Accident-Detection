@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IncidentIQ Dashboard — Human-in-the-Loop</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0f172a;
+            color: #f8fafc;
+            padding: 40px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #f1f5f9;
+            border-bottom: 2px solid #334155;
+            padding-bottom: 10px;
+        }
+
+        .alert-card {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 24px;
+            margin-top: 20px;
+            border: 1px solid #334155;
+            position: relative;
+            display: none;
+        }
+
+        .severity-high {
+            border-left: 8px solid #ef4444;
+        }
+
+        .confirm-btn {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .confirm-btn:hover {
+            background: #dc2626;
+        }
+
+        .confirm-btn:disabled {
+            background: #475569;
+            cursor: not-allowed;
+        }
+
+        .status-badge {
+            background: #334155;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        #log {
+            margin-top: 40px;
+            font-size: 14px;
+            color: #94a3b8;
+            border-top: 1px solid #334155;
+            padding-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🚨 Emergency Dispatch Control</h1>
+        <p>Awaiting incoming accident reports from YOLO model...</p>
+
+        <div id="active-alert" class="alert-card severity-high">
+            <h2 id="alert-location">Anna Nagar Signal</h2>
+            <p><strong>Severity:</strong> <span id="alert-severity">High</span></p>
+            <p><strong>Camera:</strong> <span id="alert-camera">CAM-102</span></p>
+            <p><strong>Time:</strong> <span id="alert-time">Just now</span></p>
+
+            <div style="margin-top: 20px;">
+                <button id="dispatch-btn" class="confirm-btn">Confirm & Call Ambulance</button>
+                <button id="dismiss-btn"
+                    style="background:transparent; color:#94a3b8; border:none; cursor:pointer; margin-left: 10px;">Dismiss</button>
+            </div>
+        </div>
+
+        <div id="log">Dashboard Event Log:</div>
+    </div>
+
+    <script>
+        const socket = io("http://localhost:5001");
+        const alertCard = document.getElementById('active-alert');
+        const dispatchBtn = document.getElementById('dispatch-btn');
+        let currentAlert = null;
+
+        socket.on('connect', () => {
+            console.log("Connected to IncidentIQ server");
+            addLog("Connected to server");
+        });
+
+        // Listen for new accident reports
+        socket.on('new_accident_alert', (data) => {
+            console.log("New Alert Received:", data);
+            currentAlert = data;
+
+            document.getElementById('alert-location').innerText = data.location;
+            document.getElementById('alert-severity').innerText = data.severity;
+            document.getElementById('alert-camera').innerText = data.camera_id;
+            document.getElementById('alert-time').innerText = new Date(data.timestamp).toLocaleTimeString();
+
+            alertCard.style.display = 'block';
+            dispatchBtn.disabled = false;
+            dispatchBtn.innerText = "Confirm & Call Ambulance";
+            addLog(`🚨 New alert at ${data.location}`);
+        });
+
+        // Handle Confirmation
+        dispatchBtn.onclick = async () => {
+            if (!currentAlert) return;
+
+            dispatchBtn.disabled = true;
+            dispatchBtn.innerText = "Dispatching...";
+
+            try {
+                const response = await fetch('http://localhost:5001/dispatch-ambulance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        location: currentAlert.location,
+                        alertId: currentAlert.alert_id
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    addLog(`✅ Ambulance dispatched for ${currentAlert.location}`);
+                    dispatchBtn.innerText = "Dispatched!";
+                } else {
+                    alert("Error: " + result.error);
+                    dispatchBtn.disabled = false;
+                    dispatchBtn.innerText = "Retry Dispatch";
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Critical error connecting to server");
+                dispatchBtn.disabled = false;
+            }
+        };
+
+        document.getElementById('dismiss-btn').onclick = () => {
+            alertCard.style.display = 'none';
+            addLog("Alert dismissed by operator");
+        };
+
+        function addLog(msg) {
+            const div = document.createElement('div');
+            div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            document.getElementById('log').prepend(div);
+        }
+
+        // MOCK TRIGGER (for testing right now)
+        console.log("Run mockAlert() to simulate incoming YOLO data");
+        window.mockAlert = () => {
+            fetch('http://localhost:5001/log-accident', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    location: "Anna Nagar Signal",
+                    severity: "Critical",
+                    camera_id: "YOLO-V8"
+                })
+            }).then(r => r.json()).then(console.log);
+        }
+    </script>
+</body>
+
+</html>

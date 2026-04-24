@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="js/auth-guard.js"></script>
+    <title>Dashboard — IncidentIQ Traffic Control</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Socket.IO client for real-time CCTV alerts -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        /* --- Dashboard Specific --- */
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: var(--space-lg);
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+
+        /* AI Hub layout */
+        .ai-hub-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--space-xl);
+            margin-bottom: var(--space-xl);
+        }
+
+        .ai-hub-grid .map-container {
+            height: 300px;
+        }
+
+        .analysis-results {
+            margin-top: var(--space-xl);
+        }
+
+        .alert-card {
+            background: var(--red-100);
+            border: 1px solid var(--red-400);
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg);
+            display: flex;
+            align-items: flex-start;
+            gap: var(--space-lg);
+            animation: slideUp 0.3s ease;
+            margin-bottom: var(--space-md);
+        }
+
+        .alert-card__icon {
+            font-size: 2rem;
+            flex-shrink: 0;
+        }
+
+        .alert-card__body {
+            flex: 1;
+        }
+
+        .alert-card__title {
+            font-weight: 700;
+            color: #991B1B;
+            margin-bottom: 4px;
+        }
+
+        .alert-card__meta {
+            font-size: 0.82rem;
+            color: #B91C1C;
+        }
+
+        .alert-card__actions {
+            display: flex;
+            gap: var(--space-sm);
+            margin-top: var(--space-md);
+        }
+
+        /* Video card improvements */
+        .video-card__live-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--red-500);
+            animation: pulse 1.5s infinite;
+            display: inline-block;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: var(--space-3xl);
+            color: var(--text-secondary);
+        }
+
+        .empty-state__icon {
+            font-size: 3rem;
+            margin-bottom: var(--space-md);
+            opacity: 0.4;
+        }
+
+        .empty-state__text {
+            font-size: 0.95rem;
+        }
+
+        /* Pin info */
+        .pin-info {
+            padding: var(--space-md);
+            background: var(--navy-50);
+            border-radius: var(--radius-md);
+            font-size: 0.85rem;
+            margin-top: var(--space-md);
+        }
+
+        .pin-info strong {
+            color: var(--navy-700);
+        }
+
+        /* Mobile sidebar toggle */
+        .mobile-menu-btn {
+            display: none;
+            position: fixed;
+            top: var(--space-md);
+            left: var(--space-md);
+            z-index: 200;
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-sm);
+            background: var(--bg-dark);
+            color: white;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-menu-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .ai-hub-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* YOLO button styles */
+        .yolo-btn {
+            background: linear-gradient(135deg, #7C3AED, #6D28D9);
+            color: white;
+            padding: 0.85rem 2rem;
+            border: none;
+            border-radius: var(--radius-md);
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all var(--transition-base);
+            display: inline-flex;
+            align-items: center;
+            gap: var(--space-sm);
+            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+        }
+
+        .yolo-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(124, 58, 237, 0.4);
+        }
+
+        .yolo-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Progress bar */
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--navy-200);
+            border-radius: var(--radius-full);
+            overflow: hidden;
+            margin-top: var(--space-md);
+            display: none;
+        }
+
+        .progress-bar__fill {
+            height: 100%;
+            background: linear-gradient(90deg, #7C3AED, var(--amber-500));
+            border-radius: var(--radius-full);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Emergency Dispatch Toggle Button (Human-in-the-Loop) */
+        .btn-call-emergency {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0.7rem 1.4rem;
+            background: linear-gradient(135deg, #DC2626, #991B1B);
+            color: #FFFFFF;
+            font-family: inherit;
+            font-size: 0.92rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: 2px solid #7F1D1D;
+            border-radius: var(--radius-md, 8px);
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 14px rgba(220, 38, 38, 0.4);
+            animation: subtlePulse 2s infinite;
+        }
+
+        .btn-call-emergency:hover {
+            background: linear-gradient(135deg, #B91C1C, #7F1D1D);
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 8px 24px rgba(220, 38, 38, 0.55);
+        }
+
+        .btn-call-emergency:active {
+            transform: translateY(0) scale(0.98);
+        }
+
+        .btn-call-emergency__icon {
+            font-size: 1.15em;
+        }
+
+        @keyframes subtlePulse {
+
+            0%,
+            100% {
+                box-shadow: 0 2px 8px rgba(220, 38, 38, 0.3);
+            }
+
+            50% {
+                box-shadow: 0 2px 12px rgba(220, 38, 38, 0.5), 0 0 0 3px rgba(220, 38, 38, 0.1);
+            }
+        }
+
+        /* Large variant for modals */
+        .btn-call-emergency--lg {
+            padding: 1rem 2rem;
+            font-size: 1.15rem;
+            border-radius: 12px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* Per-hospital call button in dispatch panel */
+        .btn-call-hospital {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0.5rem 1rem;
+            background: linear-gradient(135deg, #16A34A, #15803D);
+            color: #FFFFFF;
+            font-family: inherit;
+            font-size: 0.82rem;
+            font-weight: 700;
+            border: none;
+            border-radius: var(--radius-md, 8px);
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(22, 163, 74, 0.3);
+            white-space: nowrap;
+        }
+
+        .btn-call-hospital:hover {
+            background: linear-gradient(135deg, #15803D, #166534);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.45);
+        }
+
+        .btn-call-hospital:active {
+            transform: translateY(0);
+        }
+
+        /* Fallback variant (when no hospital phone — uses 108) */
+        .btn-call-hospital--fallback {
+            background: linear-gradient(135deg, #EF4444, #DC2626);
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-call-hospital--fallback:hover {
+            background: linear-gradient(135deg, #DC2626, #B91C1C);
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.45);
+        }
+
+        /* ============================================================
+           CCTV LIVE ALERTS — Premium styles
+           ============================================================ */
+
+        .cctv-alert-card {
+            background: linear-gradient(135deg, #1a0a0a 0%, #2d0f0f 100%);
+            border: 1px solid rgba(220, 38, 38, 0.45);
+            border-left: 4px solid #DC2626;
+            border-radius: var(--radius-lg, 12px);
+            padding: 0;
+            overflow: hidden;
+            margin-bottom: var(--space-lg, 16px);
+            animation: cctvSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.1), 0 8px 30px rgba(220, 38, 38, 0.15);
+        }
+
+        .cctv-alert-card--dispatched {
+            border-left-color: #22C55E;
+            opacity: 0.85;
+        }
+
+        @keyframes cctvSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-16px) scale(0.97);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .cctv-card__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            background: rgba(220, 38, 38, 0.15);
+            border-bottom: 1px solid rgba(220, 38, 38, 0.2);
+        }
+
+        .cctv-card__header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .cctv-live-badge {
+            background: #DC2626;
+            color: #fff;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.8px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            animation: liveBadgePulse 1.8s infinite;
+        }
+
+        @keyframes liveBadgePulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6);
+            }
+
+            50% {
+                box-shadow: 0 0 0 5px rgba(220, 38, 38, 0);
+            }
+        }
+
+        .cctv-card__camera {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #FCA5A5;
+        }
+
+        .cctv-card__dismiss {
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 1rem;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: color 0.2s, background 0.2s;
+        }
+
+        .cctv-card__dismiss:hover {
+            color: #fff;
+            background: rgba(220, 38, 38, 0.3);
+        }
+
+        .cctv-card__body {
+            padding: 14px 16px 16px;
+        }
+
+        .cctv-card__type {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: #F87171;
+            margin-bottom: 8px;
+        }
+
+        .cctv-card__meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 16px;
+            font-size: 0.8rem;
+            color: #FCA5A5;
+            margin-bottom: 12px;
+        }
+
+        .cctv-card__meta span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .cctv-card__snapshot {
+            margin-bottom: 14px;
+        }
+
+        .cctv-card__img {
+            width: 100%;
+            max-width: 540px;
+            border-radius: 8px;
+            border: 2px solid rgba(220, 38, 38, 0.4);
+            cursor: zoom-in;
+            display: block;
+            transition: transform 0.2s;
+        }
+
+        .cctv-card__img:hover {
+            transform: scale(1.01);
+        }
+
+        .cctv-card__img-caption {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.35);
+            margin-top: 5px;
+        }
+
+        .cctv-card__no-img {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 0.85rem;
+            margin-bottom: 14px;
+        }
+
+        .cctv-card__actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        /* Dispatch button */
+        .cctv-btn-dispatch {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0.7rem 1.4rem;
+            background: linear-gradient(135deg, #DC2626, #991B1B);
+            color: #fff;
+            font-family: inherit;
+            font-size: 0.93rem;
+            font-weight: 800;
+            border: none;
+            border-radius: var(--radius-md, 8px);
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 14px rgba(220, 38, 38, 0.45);
+            animation: subtlePulse 2s infinite;
+        }
+
+        .cctv-btn-dispatch:hover {
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 8px 24px rgba(220, 38, 38, 0.55);
+        }
+
+        .cctv-btn-dispatch:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            animation: none;
+            transform: none;
+        }
+
+        .cctv-btn-icon {
+            font-size: 1.1em;
+        }
+
+        /* Map link */
+        .cctv-btn-map {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 0.55rem 1rem;
+            background: rgba(255, 255, 255, 0.08);
+            color: #93C5FD;
+            border: 1px solid rgba(147, 197, 253, 0.3);
+            border-radius: var(--radius-md, 8px);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .cctv-btn-map:hover {
+            background: rgba(147, 197, 253, 0.15);
+        }
+
+        /* False alarm button */
+        .cctv-btn-false-alarm {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 0.55rem 1rem;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.45);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: var(--radius-md, 8px);
+            font-size: 0.82rem;
+            font-family: inherit;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .cctv-btn-false-alarm:hover {
+            color: #F87171;
+            border-color: rgba(248, 113, 113, 0.4);
+            background: rgba(248, 113, 113, 0.08);
+        }
+
+        /* Dispatched state badge */
+        .cctv-dispatched-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            background: rgba(34, 197, 94, 0.15);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            border-radius: 8px;
+            color: #4ADE80;
+            font-weight: 700;
+            font-size: 0.92rem;
+            animation: cctvSlideIn 0.4s ease;
+        }
+
+        /* Empty state for CCTV panel */
+        .cctv-empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* WS connection status bar */
+        .cctv-ws-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            font-size: 0.82rem;
+            margin-bottom: var(--space-lg, 16px);
+        }
+
+        #cctv-ws-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #94A3B8;
+            flex-shrink: 0;
+            transition: background 0.4s;
+        }
+
+        /* Sidebar badge for alert count */
+        .nav-alert-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            background: #DC2626;
+            color: #fff;
+            border-radius: 999px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            margin-left: auto;
+        }
+
+        /* Sidebar alert flash */
+        .sidebar__link--alert {
+            background: rgba(220, 38, 38, 0.15) !important;
+            animation: sidebarFlash 0.5s ease 4;
+        }
+
+        @keyframes sidebarFlash {
+
+            0%,
+            100% {
+                background: rgba(220, 38, 38, 0.15);
+            }
+
+            50% {
+                background: rgba(220, 38, 38, 0.35);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Mobile Menu Toggle -->
+    <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar__brand">
+            <div class="sidebar__brand-icon">🚦</div>
+            <span class="sidebar__brand-text">IncidentIQ</span>
+        </div>
+
+        <nav class="sidebar__nav">
+            <button class="sidebar__link active" data-section="live" onclick="switchSection('live')">
+                <span class="sidebar__link-icon">📺</span>
+                <span>Live Dashboard</span>
+            </button>
+            <button class="sidebar__link" data-section="ai" onclick="switchSection('ai')">
+                <span class="sidebar__link-icon">🤖</span>
+                <span>AI Analysis Hub</span>
+            </button>
+            <button class="sidebar__link" data-section="logs" onclick="switchSection('logs')">
+                <span class="sidebar__link-icon">📋</span>
+                <span>Alert Logs</span>
+            </button>
+            <button class="sidebar__link" data-section="cctv" onclick="switchSection('cctv')">
+                <span class="sidebar__link-icon">🎥</span>
+                <span>CCTV Live Alerts</span>
+                <span class="nav-alert-badge hidden" id="cctv-nav-badge">0</span>
+            </button>
+        </nav>
+
+        <div class="sidebar__footer">
+            <div style="font-size:0.82rem; color:var(--navy-400); margin-bottom: var(--space-sm);">
+                Signed in as
+            </div>
+            <div id="manager-name"
+                style="font-size:0.9rem; font-weight:600; color:var(--text-light); margin-bottom: var(--space-md);">
+            </div>
+            <button class="btn btn-ghost btn-sm"
+                style="width:100%; color:var(--navy-400); border-color:rgba(255,255,255,0.1);" onclick="logout()">Sign
+                Out</button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+        <!-- ===================== SECTION 1: LIVE DASHBOARD ===================== -->
+        <div class="section-panel active" id="section-live">
+            <div class="page-header">
+                <div>
+                    <h1 class="page-header__title">Live Dashboard</h1>
+                    <p class="page-header__subtitle">Monitor active incidents and traffic feeds</p>
+                </div>
+                <button class="btn btn-ghost btn-sm" onclick="refreshDashboard()">🔄 Refresh</button>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid" id="stats-grid">
+                <div class="stat-card stat-card--blue">
+                    <span class="stat-card__icon">📊</span>
+                    <span class="stat-card__label">Total Reports</span>
+                    <span class="stat-card__value" id="stat-total">0</span>
+                </div>
+                <div class="stat-card stat-card--amber">
+                    <span class="stat-card__icon">⏳</span>
+                    <span class="stat-card__label">Pending Review</span>
+                    <span class="stat-card__value" id="stat-pending">0</span>
+                </div>
+                <div class="stat-card stat-card--red">
+                    <span class="stat-card__icon">🚨</span>
+                    <span class="stat-card__label">Active Alerts</span>
+                    <span class="stat-card__value" id="stat-alerts">0</span>
+                </div>
+                <div class="stat-card stat-card--green">
+                    <span class="stat-card__icon">✅</span>
+                    <span class="stat-card__label">Resolved</span>
+                    <span class="stat-card__value" id="stat-resolved">0</span>
+                </div>
+            </div>
+
+            <!-- Incident Feed Grid -->
+            <h3 class="section-title">📡 Incident Feed</h3>
+            <div class="video-grid" id="incident-grid">
+                <!-- Populated by JS -->
+            </div>
+            <div class="empty-state hidden" id="live-empty">
+                <div class="empty-state__icon">📭</div>
+                <p class="empty-state__text">No incident reports yet. Reports from users will appear here.</p>
+            </div>
+        </div>
+
+        <!-- ===================== SECTION 2: AI ANALYSIS HUB ===================== -->
+        <div class="section-panel" id="section-ai">
+            <div class="page-header">
+                <div>
+                    <h1 class="page-header__title">AI Analysis Hub</h1>
+                    <p class="page-header__subtitle">Import CCTV footage, pin locations, and run AI detection</p>
+                </div>
+            </div>
+
+            <div class="ai-hub-grid">
+                <!-- Left: Upload -->
+                <div class="card">
+                    <h3 class="section-title">📹 Import CCTV Footage</h3>
+                    <div class="upload-zone" id="cctv-upload-zone">
+                        <div class="upload-zone__icon">🎬</div>
+                        <p class="upload-zone__title">Drop a CCTV video file here</p>
+                        <p class="upload-zone__subtitle">MP4, AVI, MOV • One video at a time</p>
+                        <input type="file" id="cctv-file-input" accept="video/*" />
+                    </div>
+                    <div class="preview-grid" id="cctv-preview-grid" style="margin-top: var(--space-lg);"></div>
+                </div>
+
+                <!-- Right: Map Pin -->
+                <div class="card">
+                    <h3 class="section-title">📍 CCTV Location</h3>
+                    <p class="map-prompt" id="map-prompt">
+                        Import a video first, then drop a pin at the CCTV camera location.
+                    </p>
+                    <div class="map-container" id="ai-map"></div>
+                    <div class="pin-info hidden" id="pin-info">
+                        📌 Pin placed at: <strong id="pin-coords">—</strong>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Run Analysis -->
+            <div class="card" style="text-align:center;">
+                <div id="backend-status" style="margin-bottom: var(--space-md); font-size: 0.85rem;">
+                    <span id="backend-dot"
+                        style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--navy-400);margin-right:6px;"></span>
+                    <span id="backend-text" style="color:var(--text-secondary);">Backend: Checking…</span>
+                </div>
+                <div class="active-video-badge hidden" id="active-video-badge">
+                    🎬 Active: <strong id="active-video-name">—</strong>
+                </div>
+                <button class="yolo-btn" id="yolo-btn" onclick="runYOLOAnalysis()">
+                    🧠 Run YOLO Analysis
+                </button>
+                <div class="progress-bar" id="yolo-progress">
+                    <div class="progress-bar__fill" id="yolo-progress-fill"></div>
+                </div>
+                <p style="font-size:0.82rem; color:var(--text-secondary); margin-top:var(--space-md);">
+                    Connects to your Python YOLO backend (accident_model_v2.pt) on localhost:5000
+                </p>
+
+                <!-- Retrain Button -->
+                <div
+                    style="margin-top: var(--space-lg); padding-top: var(--space-md); border-top: 1px solid var(--gray-200);">
+                    <button class="btn btn-ghost btn-sm" id="retrain-btn" onclick="triggerRetraining()"
+                        style="color: var(--navy-600); border-color: var(--navy-300);">
+                        🔄 Retrain Model with Feedback
+                    </button>
+                    <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">
+                        Uses 'False Alarm' data to improve accuracy.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Analysis Results -->
+            <div class="analysis-results" id="analysis-results">
+                <!-- Alert cards appear here after detection -->
+            </div>
+        </div>
+
+        <!-- ===================== SECTION 3: ALERT LOGS ===================== -->
+        <div class="section-panel" id="section-logs">
+            <div class="page-header">
+                <div>
+                    <h1 class="page-header__title">Alert Logs &amp; History</h1>
+                    <p class="page-header__subtitle">Complete record of detected incidents and hospital notifications
+                    </p>
+                </div>
+                <button class="btn btn-ghost btn-sm" onclick="refreshLogs()">🔄 Refresh</button>
+            </div>
+
+            <div class="card" style="overflow-x:auto;">
+                <table class="data-table" id="logs-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Location</th>
+                            <th>Timestamp</th>
+                            <th>Detection Type</th>
+                            <th>Hospital Alert</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-tbody">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+                <div class="empty-state hidden" id="logs-empty">
+                    <div class="empty-state__icon">📋</div>
+                    <p class="empty-state__text">No alerts logged yet. Run AI analysis or receive user reports to
+                        generate alerts.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===================== SECTION 4: CCTV LIVE ALERTS ===================== -->
+        <div class="section-panel" id="section-cctv">
+            <div class="page-header">
+                <div>
+                    <h1 class="page-header__title">🎥 CCTV Live Alerts</h1>
+                    <p class="page-header__subtitle">Real-time accident detections from your YOLO-powered CCTV pipeline
+                    </p>
+                </div>
+            </div>
+
+            <!-- WebSocket connection status -->
+            <div class="cctv-ws-bar">
+                <span id="cctv-ws-dot"></span>
+                <span id="cctv-ws-text" style="color:var(--text-secondary);">WebSocket: Connecting…</span>
+                <span style="margin-left:auto;font-size:0.78rem;color:var(--text-secondary);"
+                    title="Alerts arrive here when cctv_watcher.py detects an accident with >80% confidence for 30 consecutive frames">
+                    ℹ️ 30-frame · 80% threshold
+                </span>
+            </div>
+
+            <!-- Alert cards injected here by cctv-alerts.js -->
+            <div id="cctv-live-alerts">
+                <!-- Empty state (removed on first alert) -->
+                <div id="cctv-empty-state" class="cctv-empty-state">
+                    <div class="empty-state__icon">🎥</div>
+                    <p class="empty-state__text">
+                        No live CCTV alerts.<br>
+                        <span style="font-size:0.82rem;opacity:0.7;">
+                            Alerts appear here when <code>cctv_watcher.py</code> detects an accident.
+                        </span>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- ===================== EMERGENCY DISPATCH PANEL ===================== -->
+    <div class="dispatch-backdrop" id="dispatch-backdrop" onclick="closeDispatchPanel()"></div>
+    <aside class="dispatch-panel" id="dispatch-panel">
+        <div class="dispatch-panel__header">
+            <div>
+                <h2 class="dispatch-panel__title">🚑 Emergency Dispatch</h2>
+                <p class="dispatch-panel__subtitle">Nearby hospitals & trauma centers</p>
+            </div>
+            <button class="dispatch-panel__close" onclick="closeDispatchPanel()">✕</button>
+        </div>
+
+        <!-- Crash Summary -->
+        <div class="dispatch-crash-summary" id="dispatch-crash-summary">
+            <!-- Populated by JS -->
+        </div>
+
+        <!-- Hospital List -->
+        <div class="dispatch-panel__body">
+            <div class="dispatch-loading" id="dispatch-loading">
+                <div class="dispatch-spinner"></div>
+                <p>Searching for nearby hospitals…</p>
+            </div>
+            <div class="dispatch-hospital-list" id="dispatch-hospital-list">
+                <!-- Hospital flashcards populated by JS -->
+            </div>
+            <div class="dispatch-empty hidden" id="dispatch-empty">
+                <div style="font-size:2.5rem;margin-bottom:12px;">🏥</div>
+                <p>No hospitals found within 10km radius.</p>
+                <p style="font-size:0.82rem;color:var(--text-secondary);margin-top:8px;">Try expanding the search area
+                    or verify the pin location.</p>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- ===================== URGENT REPORT MODAL ===================== -->
+    <div id="urgent-alert-modal"
+        style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.9); align-items:center; justify-content:center; flex-direction:column;">
+        <div
+            style="background:#FEF2F2; padding:32px; border-radius:16px; max-width:500px; width:90%; text-align:center; border:2px solid #DC2626; box-shadow:0 25px 50px -12px rgba(220, 38, 38, 0.4); animation: shake 0.5s ease-in-out;">
+            <div style="font-size:4rem; margin-bottom:16px;">🚨</div>
+            <h2 style="color:#991B1B; font-weight:800; font-size:1.8rem; margin:0 0 12px;">NEW CRITICAL INCIDENT!</h2>
+            <p style="color:#B91C1C; margin-bottom:24px; font-size:1.1rem;">
+                A new report has been submitted by a user.<br>
+                <strong>Immediate action required.</strong>
+            </p>
+
+            <div id="urgent-modal-details"
+                style="background:white; padding:16px; border-radius:8px; margin-bottom:24px; text-align:left; border:1px solid #FECACA;">
+                <!-- Details populated by JS -->
+                Loading details...
+            </div>
+
+            <button onclick="openDispatchPanelFromModal()" class="btn-call-emergency btn-call-emergency--lg"
+                style="margin-bottom: 12px;">
+                <span class="btn-call-emergency__icon">🏥</span>
+                View Nearby Hospitals & Call
+            </button>
+            <button onclick="resolveDirectlyFromModal()" class="btn btn-danger"
+                style="width:100%; padding:14px; font-size:1.1rem; font-weight:bold; box-shadow:0 4px 6px rgba(220, 38, 38, 0.2);">
+                ✅ Acknowledge &amp; Resolve
+            </button>
+            <p style="margin-top:12px; font-size:0.85rem; color:#7F1D1D; opacity:0.8;">
+                This alert will persist until the incident is resolved.
+            </p>
+        </div>
+        <style>
+            @keyframes shake {
+
+                0%,
+                100% {
+                    transform: translateX(0);
+                }
+
+                10%,
+                30%,
+                50%,
+                70%,
+                90% {
+                    transform: translateX(-5px);
+                }
+
+                20%,
+                40%,
+                60%,
+                80% {
+                    transform: translateX(5px);
+                }
+            }
+        </style>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/manager-dashboard.js?v=2"></script>
+    <script type="module" src="js/firebase-sync.js"></script>
+    <!-- CCTV real-time alert system -->
+    <script src="js/cctv-alerts.js"></script>
+</body>
+
+</html>

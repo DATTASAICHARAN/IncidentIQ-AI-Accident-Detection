@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In — IncidentIQ</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <!-- Traffic Control (role=manager): flag before paint for section visibility -->
+  <script>
+    (function () {
+      if (new URLSearchParams(location.search).get("role") === "manager")
+        document.documentElement.classList.add("rescue-auth--traffic-control");
+    })();
+  </script>
+</head>
+
+<body>
+  <div class="auth-page">
+    <div class="auth-card">
+      <a href="index.html" class="auth-card__back" id="back-link">← Back to Home</a>
+
+      <div class="auth-card__header">
+        <div class="auth-card__logo">🚦</div>
+        <h1 class="auth-card__title" id="auth-title">Welcome Back</h1>
+        <p class="auth-card__subtitle" id="auth-subtitle">Sign in to continue</p>
+      </div>
+
+      <!-- Toggle -->
+      <div class="auth-toggle">
+        <button class="auth-toggle__btn active" id="toggle-login" onclick="switchMode('login')">Sign In</button>
+        <button class="auth-toggle__btn" id="toggle-signup" onclick="switchMode('signup')">Sign Up</button>
+      </div>
+
+      <!-- Login Form -->
+      <form id="login-form" onsubmit="handleAuth(event, 'login')">
+        <div class="form-group">
+          <label class="form-label" for="login-email">Email Address</label>
+          <input class="form-input" type="email" id="login-email" placeholder="you@example.com" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="login-password">Password</label>
+          <input class="form-input" type="password" id="login-password" placeholder="Enter your password" required
+            minlength="6" />
+        </div>
+        <button type="submit" class="btn btn-primary" id="login-btn">Sign In</button>
+      </form>
+
+      <!-- Sign-up only: hidden on first load — use Sign Up tab to show blood group + emergency contact -->
+      <form id="signup-form" class="hidden" hidden inert onsubmit="handleAuth(event, 'signup')">
+        <div class="form-group">
+          <label class="form-label" for="signup-name">Full Name</label>
+          <input class="form-input" type="text" id="signup-name" placeholder="John Doe" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="signup-email">Email Address</label>
+          <input class="form-input" type="email" id="signup-email" placeholder="you@example.com" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="signup-password">Password</label>
+          <input class="form-input" type="password" id="signup-password" placeholder="Min. 6 characters" required
+            minlength="6" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="signup-confirm">Confirm Password</label>
+          <input class="form-input" type="password" id="signup-confirm" placeholder="Repeat your password" required
+            minlength="6" />
+        </div>
+        <fieldset class="signup-rescue-fields" style="border: 1px solid var(--border-subtle, #e5e7eb); border-radius: var(--radius-md, 8px); padding: var(--space-md, 1rem); margin: 0 0 var(--space-md, 1rem);">
+          <legend class="form-label" style="padding: 0 0.35rem;">Medical &amp; emergency contact</legend>
+          <p class="text-muted" style="font-size: 0.82rem; margin: 0 0 var(--space-md, 0.75rem);">Required for new accounts (RescueLink SOS).</p>
+          <div class="form-group">
+            <label class="form-label" for="signup-blood-group">Blood group</label>
+            <select class="form-input" id="signup-blood-group" autocomplete="off">
+              <option value="" selected disabled>Select blood group</option>
+              <option value="A+">A+</option>
+              <option value="A-">A-</option>
+              <option value="B+">B+</option>
+              <option value="B-">B-</option>
+              <option value="O+">O+</option>
+              <option value="O-">O-</option>
+              <option value="AB+">AB+</option>
+              <option value="AB-">AB-</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="signup-emergency-contact">Emergency contact phone</label>
+            <input class="form-input" type="tel" id="signup-emergency-contact" placeholder="+91xxxxxxxxxx or 10-digit mobile" autocomplete="tel" />
+          </div>
+        </fieldset>
+        <button type="submit" class="btn btn-primary" id="signup-btn">Create Account</button>
+      </form>
+
+      <p id="auth-error"
+        style="color: var(--red-500); font-size: 0.85rem; margin-top: var(--space-md); text-align: center; display: none;">
+      </p>
+
+      <!-- Emergency Services (compact, collapsible) -->
+      <details class="emergency-services" id="emergency-services">
+        <summary class="emergency-services__summary">
+          🚑 Emergency Services Near You (10km)
+        </summary>
+        <div class="emergency-services__body">
+          <p class="emergency-services__hint">
+            Nearby hospitals, blood banks, and police stations based on your live location.
+          </p>
+          <div class="emergency-services__status" id="emergency-status">Detecting your location...</div>
+          <div class="emergency-services__actions">
+            <button type="button" class="btn btn-ghost btn-sm" id="emergency-refresh-btn">🔄 Retry</button>
+          </div>
+          <div class="emergency-services__grid" id="emergency-grid"></div>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <!-- Emergency locator only for non–Traffic Control login (saves API calls when hidden) -->
+  <script>
+    (function () {
+      if (new URLSearchParams(location.search).get("role") === "manager") return;
+      var s = document.createElement("script");
+      s.src = "js/emergency-services.js";
+      document.body.appendChild(s);
+    })();
+  </script>
+</body>
+
+</html>

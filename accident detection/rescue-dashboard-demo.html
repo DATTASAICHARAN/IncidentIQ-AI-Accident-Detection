@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RescueLink — Dashboard layout demo</title>
+  <!-- Reuses the same 3-column styles as Traffic Control (manager-dashboard.html) -->
+  <link rel="stylesheet" href="css/rescue-dashboard.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    /* ----- Demo page chrome only (does not affect production dashboard) ----- */
+    :root {
+      --space-md: 1rem;
+      --space-xl: 1.75rem;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Inter", system-ui, sans-serif;
+      background: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(59, 130, 246, 0.12), transparent),
+        linear-gradient(180deg, #020617 0%, #0f172a 40%, #020617 100%);
+      color: #e2e8f0;
+      padding: clamp(1rem, 4vw, 2rem);
+    }
+
+    .demo-banner {
+      max-width: 1200px;
+      margin: 0 auto 1.25rem;
+      padding: 0.65rem 1rem;
+      border-radius: 14px;
+      background: rgba(59, 130, 246, 0.12);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      font-size: 0.85rem;
+      color: #93c5fd;
+    }
+
+    .demo-banner a {
+      color: #7dd3fc;
+    }
+
+    .demo-wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="demo-banner">
+    <strong>Standalone demo</strong> — same layout &amp; CSS as the Live Dashboard hub. Not wired to auth or APIs.
+    Open via your server: <a href="http://localhost:5001/rescue-dashboard-demo.html">localhost:5001/…</a> (path may vary).
+  </div>
+
+  <div class="demo-wrap">
+    <!-- ========== RescueLink — 3-column hub (identical structure to manager-dashboard snippet) ========== -->
+    <section class="rescue-hub" aria-label="RescueLink emergency hub">
+      <h2 class="rescue-hub__title">RescueLink — Command overview</h2>
+      <div class="rescue-hub__grid">
+        <!-- Block 1: Emergency Resources -->
+        <div class="rescue-panel rescue-panel--resources">
+          <h3 class="rescue-panel__heading">🗂 Emergency resources</h3>
+          <label class="visually-hidden" for="rescue-resource-search-demo">Search resources</label>
+          <input type="search" id="rescue-resource-search-demo" class="rescue-search" placeholder="Search / filter resources…"
+            autocomplete="off" />
+          <ul class="rescue-dir">
+            <li class="rescue-dir__item">
+              <span class="rescue-dir__icon" aria-hidden="true">🏥</span>
+              <div class="rescue-dir__text">
+                <strong>Hospitals</strong>
+                <span>Nearest trauma centers &amp; ER</span>
+              </div>
+            </li>
+            <li class="rescue-dir__item">
+              <span class="rescue-dir__icon" aria-hidden="true">🚓</span>
+              <div class="rescue-dir__text">
+                <strong>Police stations</strong>
+                <span>Traffic &amp; local law enforcement</span>
+              </div>
+            </li>
+            <li class="rescue-dir__item">
+              <span class="rescue-dir__icon" aria-hidden="true">🩸</span>
+              <div class="rescue-dir__text">
+                <strong>Blood banks</strong>
+                <span>Supply &amp; donation points</span>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Block 2: Immediate Assistance (dominant) -->
+        <div class="rescue-panel rescue-panel--sos">
+          <div class="rescue-sos-wrap">
+            <span class="rescue-sos__label">Immediate assistance</span>
+            <p class="rescue-sos__hint">Highest-priority channel for live emergencies. On viewports under 768px wide, this
+              block stacks to the top.</p>
+            <button type="button" class="rescue-sos__btn" id="rescue-demo-sos-btn">
+              🚨 SOS
+            </button>
+          </div>
+        </div>
+
+        <!-- Block 3: System Management -->
+        <div class="rescue-panel rescue-panel--admin">
+          <h3 class="rescue-panel__heading">⚙️ System management</h3>
+          <div class="rescue-admin__actions">
+            <div class="rescue-admin__field">
+              <span class="rescue-admin__label">Import details</span>
+              <input type="file" class="rescue-admin__input" accept=".csv,text/csv" id="rescue-import-csv-demo"
+                title="CSV upload (placeholder)" />
+              <p class="rescue-admin__note">Placeholder — wire to your CSV import endpoint.</p>
+            </div>
+            <button type="button" class="rescue-btn--secondary" id="rescue-demo-submit-resource">
+              ➕ Submit new resource
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    /* Demo-only: no backend */
+    document.getElementById("rescue-demo-sos-btn").addEventListener("click", function () {
+      alert("Demo: connect SOS to your dispatch / broadcast workflow.");
+    });
+    document.getElementById("rescue-demo-submit-resource").addEventListener("click", function () {
+      alert("Demo: connect to your admin API for new resources.");
+    });
+  </script>
+</body>
+
+</html>

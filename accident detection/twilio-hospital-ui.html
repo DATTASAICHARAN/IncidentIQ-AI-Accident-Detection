@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hospital Directory - Twilio Calling</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f5f7fb;
+      color: #1f2937;
+    }
+    .container {
+      max-width: 980px;
+      margin: 40px auto;
+      padding: 0 16px;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+    }
+    .name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .phone {
+      color: #374151;
+      margin-bottom: 14px;
+      font-size: 0.95rem;
+    }
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      background: #2563eb;
+      color: #fff;
+      font-weight: 600;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 20px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 12px;
+      min-height: 20px;
+    }
+    .ok { color: #166534; }
+    .err { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Hospital Directory</h1>
+
+    <div class="grid" id="hospital-grid"></div>
+
+    <div class="status" id="status-box">Ready to place calls.</div>
+  </div>
+
+  <script>
+    // Frontend fetches hospitals from backend, renders cards, and calls /api/call.
+    const statusBox = document.getElementById("status-box");
+    const grid = document.getElementById("hospital-grid");
+
+    function setStatus(message, type = "") {
+      statusBox.textContent = message;
+      statusBox.className = `status ${type}`.trim();
+    }
+
+    function createCard(hospital) {
+      const card = document.createElement("div");
+      card.className = "card";
+
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = hospital.name;
+
+      const phone = document.createElement("div");
+      phone.className = "phone";
+      phone.textContent = `Phone: ${hospital.phone}`;
+
+      const btn = document.createElement("button");
+      btn.textContent = "Call";
+
+      btn.addEventListener("click", async () => {
+        btn.disabled = true;
+        setStatus(`Calling ${hospital.name}...`);
+
+        try {
+          const response = await fetch("/api/call", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ hospitalId: hospital.id })
+          });
+
+          const result = await response.json();
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || "Call failed.");
+          }
+
+          setStatus(
+            `Call started for ${result.hospital}. SID: ${result.callSid}`,
+            "ok"
+          );
+        } catch (err) {
+          setStatus(`Error: ${err.message}`, "err");
+        } finally {
+          btn.disabled = false;
+        }
+      });
+
+      card.appendChild(name);
+      card.appendChild(phone);
+      card.appendChild(btn);
+      return card;
+    }
+
+    async function loadHospitals() {
+      try {
+        const res = await fetch("/api/hospitals");
+        const hospitals = await res.json();
+        hospitals.forEach((h) => grid.appendChild(createCard(h)));
+      } catch (err) {
+        setStatus(`Failed to load hospitals: ${err.message}`, "err");
+      }
+    }
+
+    loadHospitals();
+  </script>
+</body>
+</html>
+

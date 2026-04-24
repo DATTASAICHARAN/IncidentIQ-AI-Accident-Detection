@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Firebase Module Test — IncidentIQ</title>
+    <style>
+        body {
+            font-family: system-ui, sans-serif;
+            background: #111;
+            color: #eee;
+            padding: 2rem;
+        }
+
+        .pass {
+            color: #4ade80;
+        }
+
+        .fail {
+            color: #f87171;
+        }
+
+        pre {
+            background: #1e1e2e;
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔥 Firebase Module Load Test</h1>
+    <pre id="log">Running checks…
+</pre>
+
+    <script type="module">
+        const logEl = document.getElementById('log');
+        function log(msg, ok = true) {
+            logEl.textContent += `${ok ? '✅' : '❌'} ${msg}\n`;
+        }
+
+        try {
+            const { app, auth, db, storage } = await import('./js/firebase-config.js');
+            log('firebase-config.js loaded');
+            log(`  app.name     = "${app.name}"`);
+            log(`  auth exists  = ${!!auth}`);
+            log(`  db exists    = ${!!db}`);
+            log(`  storage exists = ${!!storage}`);
+        } catch (e) { log(`firebase-config.js FAILED: ${e.message}`, false); }
+
+        try {
+            const mod = await import('./js/firebase-auth.js');
+            const fns = ['registerUser', 'loginUser', 'logoutUser', 'onAuthChange', 'getCurrentUser'];
+            const missing = fns.filter(f => typeof mod[f] !== 'function');
+            if (missing.length) { log(`firebase-auth.js missing: ${missing.join(', ')}`, false); }
+            else { log(`firebase-auth.js — all ${fns.length} functions exported`); }
+        } catch (e) { log(`firebase-auth.js FAILED: ${e.message}`, false); }
+
+        try {
+            const mod = await import('./js/firebase-db.js');
+            const fns = ['pushAccidentReport', 'fetchActiveReports', 'updateReportStatus'];
+            const missing = fns.filter(f => typeof mod[f] !== 'function');
+            if (missing.length) { log(`firebase-db.js missing: ${missing.join(', ')}`, false); }
+            else { log(`firebase-db.js — all ${fns.length} functions exported`); }
+        } catch (e) { log(`firebase-db.js FAILED: ${e.message}`, false); }
+
+        try {
+            const mod = await import('./js/firebase-storage.js');
+            if (typeof mod.uploadAccidentImage !== 'function') {
+                log('firebase-storage.js missing uploadAccidentImage', false);
+            } else {
+                log('firebase-storage.js — uploadAccidentImage exported');
+            }
+        } catch (e) { log(`firebase-storage.js FAILED: ${e.message}`, false); }
+
+        log('\nAll checks complete.');
+    </script>
+</body>
+
+</html>
